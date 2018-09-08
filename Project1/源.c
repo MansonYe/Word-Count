@@ -3,25 +3,48 @@
 #include<assert.h>
 
 
-void CodeCalu(char *Address) {
+void CodeCount(char *Address) {
 	
 	FILE *file = fopen(Address, "r");
 	assert(file != NULL);
 
 	char code;
-	int cal = 0;
+	int count = 0;
 
 	while ((code = fgetc(file)) != EOF) {
 		if ( (code!=' ') && (code!='\n') && (code!='\t') )
-			cal++;
+			count++;
 	}
 
 	fclose(file);
 
-	printf("%d", cal);
+	printf(" code = %d", count);
 
 }
 
+void WordCount(char *Address) {
+
+	FILE *file = fopen(Address, "r");
+	assert(file != NULL);
+
+	char word;
+	int is_word = 0;
+	int count = 0;
+
+	while ((word = fgetc(file)) != EOF) {
+		if ((word >= 'a' && word <= 'z') || (word >= 'A' && word <= 'Z')) {
+			if (is_word == 0) count++;
+			is_word = 1;
+		}
+		else 
+			is_word = 0;
+	}
+
+	fclose(file);
+
+	printf(" word = %d", count);
+
+}
 
 
 int main() {
@@ -30,7 +53,8 @@ int main() {
 	char *Type = "-c";
 	
 	switch (*(Type + 1)) {
-	case 'c': CodeCalu(Address); break;
+	case 'c': CodeCount(Address); break;
+	case 'w': WordCount(Address); break;
 
 	}
 
