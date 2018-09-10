@@ -52,10 +52,10 @@ int LineCount(char *Path) {	//计算行数
 	FILE *file = fopen(Path, "r");
 	assert(file != NULL);
 
-	char *s = (char*)malloc(100 * sizeof(char));//申请空间
+	char *s = (char*)malloc(200 * sizeof(char));//申请空间
 	int count = 0;
 
-	while (fgets(s, 100, file) != NULL)	//逐次取文件中的行
+	while (fgets(s, 200, file) != NULL)	//逐次取文件中的行
 		count++;
 
 	free(s);
@@ -66,57 +66,147 @@ int LineCount(char *Path) {	//计算行数
 
 void AllDetail(char *Path) {
 	
-}
+	FILE *file = fopen(Path, "r");
+	assert(file != NULL);
 
-void Scan(char *Path, long Temp, struct _finddata_t FileData, char Type) {//通过递归实现目录下文件遍历
-
-	char *Address = (char*)malloc(100 * sizeof(char));//申请空间储存文件地址
-	char *p = Address;
+	char *s = (char*)malloc(200 * sizeof(char));//申请空间
 	int i;
+	
+	int is_codeline = 0;
+	int is_annoline = 0;
+	int codecount = 0;
+	int annocount = 0;
+	int blankcount = 0;
+	int lock = 0;
+	int filelock = 0;
+	
+	while (fgets(s, 200, file) != NULL) {	//逐次取文件中的行
+		for (i = 0; *(s+i) != '\0'; i++) {
+			
+			if ( ( ( *(s+i) >= 'a' && *(s+i) <= 'z') || ( *(s+i) >= 'A' && *(s+i) <= 'Z') ) && filelock == 0) {//判断是否是代码行
+				if (is_codeline == 0 && lock == 0) 
+					codecount++;
+				is_codeline = 1;
+			}
 
-	for (i = 0; *(Path + i) != '*'; i++)//把遇到'*'前的路径保存
-		*(p++) = *(Path + i);
+			if ( *(s+i) == '/' && *(s+i+1) == '/' && is_codeline == 0 && filelock == 0){	//判断是否为注释行
+					annocount++;
+					lock = 1;
+			}
 
-	for (i = 0; *(FileData.name + i) != '\0'; i++)//把文件名插入到路径后
-		*(p++) = *(FileData.name + i);
+			if (*(s + i) == '/' && *(s + i + 1) == '*'){//判断文档注释开始
+				filelock = 1;
+				annocount -= is_codeline;//注释在代码后的情况
+			}
 
-	*(p++) = '\0';//字符串结束标志
+			if (*(s + i) == '*' && *(s + i + 1) == '/') {//判断文档注释结束
+				filelock = 0;
+				annocount += (*(s + i + 2) == '\n');//注释后换行情况
 
-	printf("%s ", FileData.name);
-	switch (Type) {//根据功能选择输出
-	case 'c': printf("code count: %d\n", CodeCount(Address)); break;
-	case 'w': printf("word count: %d\n", WordCount(Address)); break;
-	case 'l': printf("line count: %d\n", LineCount(Address)); break;
-	default: break;
+			}
+
+		}
+
+		if (filelock) 
+			annocount++;//注释行结束
+		blankcount++;//每一行结束计数加一，并清空状态
+		is_codeline = 0;
+		is_annoline = 0;
+		lock = 0;		
 	}
 
-	free(Address);
+	free(s);
+	fclose(file);
 
-	if (_findnext(Temp, &FileData) == 0)//以下一个文件能被读取为递归条件
-		Scan(Path, Temp, FileData, Type);
-	else
-		_findclose(Temp);//否则结束递归
+	blankcount = blankcount - codecount - annocount;
+	printf("codeline:%d, annoline:%d, blankline:%d", codecount, annocount, blankcount);
+}
+
+void Scan(char *Path, char Type) {
+	
+	char *FileName = NULL;
+	char *FileType = NULL;
+	char Temp[30];
+	char NextPath[100];
+	long Head;
+	struct _finddata_t FileData;
+	int i = 0;
+
+	while (*(Path + i) != '\0') {
+		if (*(Path + i) == '\\')
+			FileName = Path + i + 1;
+		if (*(Path + i) == '.')
+			FileType = Path + i + 1;
+		i++;
+	}
+	
+	strcpy(Temp, FileType);//调整字符串
+	*FileType = '*';
+	*(FileType + 1) = '\0';
+	
+	Head = _findfirst(Path, &FileData);
+	
+	strcpy(FileType, Temp);//恢复字符串
+
+	do {
+		if ( !strcmp(FileData.name, "..") || !strcmp(FileData.name, "."))
+			continue;
+		
+		if (_A_SUBDIR == FileData.attrib)	//是文件夹
+		{	
+			strcpy(Temp, FileName);
+			
+			for (i = 0; *(FileData.name + i) != '\0'; i++) {
+				*(FileName + i) = *(FileData.name + i);
+			}
+			*(FileName + i) = '\\';
+			strcat(Path, Temp);
+
+			Scan(Path, Type);
+
+			strcpy(FileName, Temp);
+			
+		}
+		else//是文件 
+		{	
+			for (i = 0; *(FileData.name + i) != '.'; i++);
+
+			if (!strcmp(FileData.name + i + 1, FileType)) {	//是指定类型的文件
+				
+				strcpy(Temp, FileName);
+				strcpy(FileName, FileData.name); //调整字符串
+				
+				printf("%s:  ", FileData.name);
+				AllDetail(Path);
+				printf("\n");
+
+				strcpy(FileName, Temp);//恢复字符串
+			}			
+		}
+	} while (_findnext(Head, &FileData) == 0);
+
+	_findclose(Head);
+	
 }
 
 int main() {
 	
-	char *Path = "*.txt";
+	char Path[100] = "C:\\Users\\user\\source\\repos\\Project1\\Project1\\*.c";
 	char *Type = "-s";
-	char *Type2 = "-l";
-	long Temp = 0;
-	struct _finddata_t FileData;
+	char *Type2 = "-a";
+
 
 	switch (*(Type + 1)) {
 	case 'c': printf("code count: %d\n", CodeCount(Path)); break;
 	case 'w': printf("word count: %d\n", WordCount(Path)); break;
 	case 'l': printf("line count: %d\n", LineCount(Path)); break;
-	case 's': Temp = _findfirst(Path, &FileData); 
-			  Scan(Path, Temp, FileData, *(Type2+1));
-			  break;
+	case 'a': AllDetail(Path); break;
+	case 's': Scan(Path, *(Type2+1)); break;
 	default: break;
 
 	}
 
+	printf("\nPress any key to continue");
 	getchar();
 
 	return 0;
