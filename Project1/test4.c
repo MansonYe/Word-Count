@@ -1,3 +1,4 @@
+
 /*this is a test file*/
 
 /*
@@ -10,7 +11,8 @@ manson ye
 #include<string.h>
 
 
-int main() {	//main method
+int main() //main method
+{	
 	int i = 100 / 4;
 	
 	printf("hello world");/**/
